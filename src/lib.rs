@@ -4,6 +4,7 @@ extern crate graphics;
 extern crate glutin_window;
 extern crate opengl_graphics;
 
+use std::error::Error;
 use glutin_window::GlutinWindow as Window;
 use graphics::Transformed;
 use opengl_graphics::{GlGraphics, OpenGL};
@@ -12,6 +13,7 @@ use piston::input::*;
 use piston::window::WindowSettings;
 
 pub struct GameManager {
+    /// Represents the state of the game
     gl: GlGraphics,
     started: bool,
     board: gobs::Board,
@@ -35,7 +37,7 @@ impl GameManager {
     }
 }
 
-pub fn run() {
+pub fn run() -> Result<(), Box<Error>> {
     const WINDOW_XY: f64 = 300.0;
     let mut window: Window = WindowSettings::new("WHACK!", [WINDOW_XY as u32, WINDOW_XY as u32])
         .exit_on_esc(true)
@@ -65,6 +67,8 @@ pub fn run() {
             }
         }
     }
+
+    Ok(())
 }
 
 pub mod colours {
@@ -98,6 +102,13 @@ pub mod gobs {
     }
 
     impl Tile {
+        /// Returns a tile struct
+        ///
+        /// ```
+        /// use whack::colours;
+        /// use whack::gobs::Tile;
+        /// let tile = Tile::new(100.0, 100.0, 50.0, colours::BLUE);
+        /// ```
         pub fn new(x: f64, y: f64, wh: f64, colour: Colour) -> Tile {
             Tile {
                 rect: graphics::rectangle::square(0.0, 0.0, wh),
@@ -114,6 +125,12 @@ pub mod gobs {
     }
 
     impl Board {
+        /// Returns a Board struct with an empty Tiles array
+        ///
+        /// ```
+        /// use whack::gobs::Board;
+        /// let board = Board::from_length(300.0);
+        /// ```
         pub fn from_length(length: f64) -> Board {
             Board {
                 tiles: [None; 9],

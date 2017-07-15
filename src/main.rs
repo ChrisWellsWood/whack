@@ -1,5 +1,10 @@
 extern crate whack;
 
+use std::process;
+
 fn main() {
-    whack::run();
+    if let Err(e) = whack::run() {
+        println!("Application error: {}", e);
+        process::exit(1);
+    };
 }
