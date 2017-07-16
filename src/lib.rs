@@ -26,6 +26,7 @@ impl GameManager {
     ///
     /// This test makes sure that the GameManager can initialise, but it requires the OpenGL
     /// function pointers to be loaded first, so a window must be initialised.
+    ///
     /// ```
     /// extern crate piston;
     /// extern crate glutin_window;
@@ -44,7 +45,7 @@ impl GameManager {
             board: gobs::Board::from_length(window_size),
             started: false,
             max_time: max_time,
-            tile_timer: max_time,
+            tile_timer: 0.0,
         }
     }
 
@@ -69,6 +70,7 @@ impl GameManager {
             self.tile_timer -= args.dt;
             if self.tile_timer < 0.0 {
                 self.tile_timer = self.max_time;
+                self.board.add_tile();
             }
         }
     }
@@ -81,7 +83,7 @@ pub fn run() -> Result<(), Box<Error>> {
         .build()
         .unwrap();
 
-    let mut game = GameManager::new(WINDOW_XY, 3.0);
+    let mut game = GameManager::new(WINDOW_XY, 1.0);
 
     println!("PRESS SPACE TO START!");
 
@@ -106,7 +108,7 @@ pub fn run() -> Result<(), Box<Error>> {
 fn handle_key_press(game: &mut GameManager, key: piston::input::Key) {
     if key == Key::Space {
         if !game.started {
-            game::add_tile(&mut game.board);
+            game.started = true;
         }
     }
     if key == Key::Backspace {
@@ -128,8 +130,10 @@ pub mod colours {
 
 pub mod gobs {
     extern crate graphics;
+    extern crate rand;
 
-    use colours::Colour;
+    use rand::Rng;
+    use colours::{Colour, RED};
 
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct Point {
@@ -180,78 +184,72 @@ pub mod gobs {
                 length: length,
             }
         }
+
+        pub fn add_tile(&mut self) {
+            let new_pos = self.random_position();
+            let new_tile = Tile::new(self.x_from_index(new_pos, self.length),
+                                     self.y_from_index(new_pos, self.length),
+                                     self.length / 3.0,
+                                     RED);
+            self.tiles[new_pos] = Some(new_tile);
+        }
+
+        fn random_position(&self) -> usize {
+            let pos = rand::thread_rng().gen_range(0, 9);
+            pos
+        }
+
+        fn x_from_index(&self, i: usize, board_length: f64) -> f64 {
+            let tile_length = board_length / 3.0;
+            ((i as f64 % 3.0) * tile_length) + (0.5 * tile_length)
+        }
+
+        fn y_from_index(&self, i: usize, board_length: f64) -> f64 {
+            let tile_length = board_length / 3.0;
+            ((i as f64 / 3.0).floor() * tile_length) + (0.5 * tile_length)
+        }
     }
 
     pub type MaybeTile = Option<Tile>;
     pub type Tiles = [MaybeTile; 9];
-}
-
-pub mod game {
-    extern crate rand;
-
-    use rand::Rng;
-    use colours::RED;
-    use gobs::{Board, Tile};
-
-    pub fn add_tile(board: &mut Board) {
-        let new_pos = random_position();
-        let new_tile = Tile::new(x_from_index(new_pos, board.length),
-                                 y_from_index(new_pos, board.length),
-                                 board.length / 3.0,
-                                 RED);
-        board.tiles[new_pos] = Some(new_tile);
-    }
-
-    fn random_position() -> usize {
-        let pos = rand::thread_rng().gen_range(0, 9);
-        pos
-    }
-
-    fn x_from_index(i: usize, board_length: f64) -> f64 {
-        let tile_length = board_length / 3.0;
-        ((i as f64 % 3.0) * tile_length) + (0.5 * tile_length)
-    }
-
-    fn y_from_index(i: usize, board_length: f64) -> f64 {
-        let tile_length = board_length / 3.0;
-        ((i as f64 / 3.0).floor() * tile_length) + (0.5 * tile_length)
-    }
 
     #[cfg(test)]
     mod tests {
         use super::*;
-        use gobs;
+
+        #[test]
+        fn add_tile() {
+            let mut board = Board::from_length(300.0);
+            board.add_tile();
+            let is_some_array: Vec<bool> = board.tiles.iter().map(|x| x.is_some()).collect();
+            assert!(is_some_array.contains(&true));
+        }
 
         #[test]
         fn gen_random_index() {
+            let board = Board::from_length(300.0);
             for _ in 1..10 {
-                let i = random_position();
+                let i = board.random_position();
                 assert!(i <= 8);
             }
         }
 
         #[test]
         fn check_x_from_i() {
-            assert_eq!(x_from_index(0, 300.0), 50.0);
-            assert_eq!(x_from_index(1, 300.0), 150.0);
-            assert_eq!(x_from_index(2, 300.0), 250.0);
-            assert_eq!(x_from_index(8, 300.0), 250.0);
+            let board = Board::from_length(300.0);
+            assert_eq!(board.x_from_index(0, 300.0), 50.0);
+            assert_eq!(board.x_from_index(1, 300.0), 150.0);
+            assert_eq!(board.x_from_index(2, 300.0), 250.0);
+            assert_eq!(board.x_from_index(8, 300.0), 250.0);
         }
 
         #[test]
         fn check_y_from_i() {
-            assert_eq!(y_from_index(0, 300.0), 50.0);
-            assert_eq!(y_from_index(1, 300.0), 50.0);
-            assert_eq!(y_from_index(2, 300.0), 50.0);
-            assert_eq!(y_from_index(8, 300.0), 250.0);
-        }
-
-        #[test]
-        fn check_tile_addtion() {
-            let mut board = gobs::Board::from_length(300.0);
-            add_tile(&mut board);
-            let is_some_array: Vec<bool> = board.tiles.iter().map(|x| x.is_some()).collect();
-            assert!(is_some_array.contains(&true));
+            let board = Board::from_length(300.0);
+            assert_eq!(board.y_from_index(0, 300.0), 50.0);
+            assert_eq!(board.y_from_index(1, 300.0), 50.0);
+            assert_eq!(board.y_from_index(2, 300.0), 50.0);
+            assert_eq!(board.y_from_index(8, 300.0), 250.0);
         }
     }
 }
