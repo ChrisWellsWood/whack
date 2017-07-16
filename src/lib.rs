@@ -185,6 +185,16 @@ pub mod gobs {
             }
         }
 
+        pub fn free_positions(&self) -> Vec<usize> {
+            let positions: Vec<usize> = self.tiles
+                .iter()
+                .enumerate()
+                .filter(|t| t.1.is_none())
+                .map(|t| t.0)
+                .collect();
+            positions
+        }
+
         pub fn add_tile(&mut self) {
             let new_pos = self.random_position();
             let new_tile = Tile::new(self.x_from_index(new_pos, self.length),
@@ -223,6 +233,13 @@ pub mod gobs {
             board.add_tile();
             let is_some_array: Vec<bool> = board.tiles.iter().map(|x| x.is_some()).collect();
             assert!(is_some_array.contains(&true));
+        }
+
+        #[test]
+        fn free_positions() {
+            let mut board = Board::from_length(300.0);
+            board.add_tile();
+            assert_eq!(board.free_positions().len(), 8);
         }
 
         #[test]
