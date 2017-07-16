@@ -112,7 +112,7 @@ fn handle_key_press(game: &mut GameManager, key: piston::input::Key) {
         }
     }
     if key == Key::Backspace {
-        game.board = gobs::Board::from_length(game.board.length);
+        game.board.clear_board();
     }
 }
 
@@ -132,7 +132,7 @@ pub mod gobs {
     extern crate graphics;
     extern crate rand;
 
-    use rand::Rng;
+    use rand::sample;
     use colours::{Colour, RED};
 
     #[derive(Debug, Copy, Clone, PartialEq)]
@@ -168,6 +168,7 @@ pub mod gobs {
     #[derive(Debug)]
     pub struct Board {
         pub tiles: Tiles,
+        pub full: bool,
         pub length: f64,
     }
 
@@ -181,6 +182,7 @@ pub mod gobs {
         pub fn from_length(length: f64) -> Board {
             Board {
                 tiles: [None; 9],
+                full: false,
                 length: length,
             }
         }
@@ -197,16 +199,26 @@ pub mod gobs {
 
         pub fn add_tile(&mut self) {
             let new_pos = self.random_position();
-            let new_tile = Tile::new(self.x_from_index(new_pos, self.length),
-                                     self.y_from_index(new_pos, self.length),
-                                     self.length / 3.0,
-                                     RED);
-            self.tiles[new_pos] = Some(new_tile);
+            if let Some(i) = new_pos {
+                let new_tile = Tile::new(self.x_from_index(i, self.length),
+                                         self.y_from_index(i, self.length),
+                                         self.length / 3.0,
+                                         RED);
+                self.tiles[i] = Some(new_tile);
+            } else {
+                println!("ITS FULL!");
+                self.full = true;
+            }
         }
 
-        fn random_position(&self) -> usize {
-            let pos = rand::thread_rng().gen_range(0, 9);
-            pos
+        fn random_position(&self) -> Option<usize> {
+            let free_positions = self.free_positions();
+            if free_positions.is_empty() {
+                return None;
+            }
+            let mut rng = rand::thread_rng();
+            let sample = sample(&mut rng, free_positions.into_iter(), 1);
+            Some(sample[0])
         }
 
         fn x_from_index(&self, i: usize, board_length: f64) -> f64 {
@@ -217,6 +229,11 @@ pub mod gobs {
         fn y_from_index(&self, i: usize, board_length: f64) -> f64 {
             let tile_length = board_length / 3.0;
             ((i as f64 / 3.0).floor() * tile_length) + (0.5 * tile_length)
+        }
+
+        pub fn clear_board(&mut self) {
+            self.tiles = [None; 9];
+            self.full = false;
         }
     }
 
@@ -246,8 +263,9 @@ pub mod gobs {
         fn gen_random_index() {
             let board = Board::from_length(300.0);
             for _ in 1..10 {
-                let i = board.random_position();
-                assert!(i <= 8);
+                if let Some(i) = board.random_position() {
+                    assert!(i <= 8);
+                }
             }
         }
 
