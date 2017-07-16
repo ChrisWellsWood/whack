@@ -168,7 +168,6 @@ pub mod gobs {
     #[derive(Debug)]
     pub struct Board {
         pub tiles: Tiles,
-        pub full: bool,
         pub length: f64,
     }
 
@@ -182,7 +181,6 @@ pub mod gobs {
         pub fn from_length(length: f64) -> Board {
             Board {
                 tiles: [None; 9],
-                full: false,
                 length: length,
             }
         }
@@ -197,6 +195,14 @@ pub mod gobs {
             positions
         }
 
+        pub fn is_full(&self) -> bool {
+            if self.free_positions().is_empty() {
+                true
+            } else {
+                false
+            }
+        }
+
         pub fn add_tile(&mut self) {
             let new_pos = self.random_position();
             if let Some(i) = new_pos {
@@ -205,9 +211,6 @@ pub mod gobs {
                                          self.length / 3.0,
                                          RED);
                 self.tiles[i] = Some(new_tile);
-            } else {
-                println!("ITS FULL!");
-                self.full = true;
             }
         }
 
@@ -233,7 +236,6 @@ pub mod gobs {
 
         pub fn clear_board(&mut self) {
             self.tiles = [None; 9];
-            self.full = false;
         }
     }
 
@@ -257,6 +259,19 @@ pub mod gobs {
             let mut board = Board::from_length(300.0);
             board.add_tile();
             assert_eq!(board.free_positions().len(), 8);
+        }
+
+        #[test]
+        fn clear_board() {
+            let mut board = Board::from_length(300.0);
+            for _ in 0..8 {
+                board.add_tile();
+            }
+            assert!(!board.is_full());
+            board.add_tile();
+            assert!(board.is_full());
+            board.clear_board();
+            assert!(!board.is_full());
         }
 
         #[test]
