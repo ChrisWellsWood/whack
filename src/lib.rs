@@ -15,11 +15,39 @@ use piston::window::WindowSettings;
 pub struct GameManager {
     /// Represents the state of the game
     gl: GlGraphics,
-    started: bool,
     board: gobs::Board,
+    started: bool,
+    max_time: f64,
+    tile_timer: f64,
 }
 
 impl GameManager {
+    /// Returns the game manager
+    ///
+    /// This test makes sure that the GameManager can initialise, but it requires the OpenGL
+    /// function pointers to be loaded first, so a window must be initialised.
+    /// ```
+    /// extern crate piston;
+    /// extern crate glutin_window;
+    /// extern crate whack;
+    /// const WINDOW_XY: f64 = 300.0;
+    /// let window: glutin_window::GlutinWindow
+    ///     = piston::window::WindowSettings::new("WHACK!", [WINDOW_XY as u32, WINDOW_XY as u32])
+    ///    .exit_on_esc(true)
+    ///    .build()
+    ///    .unwrap();
+    /// let game = whack::GameManager::new(WINDOW_XY, 3.0);
+    /// ```
+    pub fn new(window_size: f64, max_time: f64) -> GameManager {
+        GameManager {
+            gl: GlGraphics::new(OpenGL::V3_2),
+            board: gobs::Board::from_length(window_size),
+            started: false,
+            max_time: max_time,
+            tile_timer: max_time,
+        }
+    }
+
     fn render(&mut self, args: &RenderArgs) {
         let board = &self.board;
         self.gl.draw(args.viewport(), |c, gl| {
@@ -35,6 +63,15 @@ impl GameManager {
             }
         });
     }
+
+    fn update(&mut self, args: &UpdateArgs) {
+        if self.started {
+            self.tile_timer -= args.dt;
+            if self.tile_timer < 0.0 {
+                self.tile_timer = self.max_time;
+            }
+        }
+    }
 }
 
 pub fn run() -> Result<(), Box<Error>> {
@@ -44,11 +81,7 @@ pub fn run() -> Result<(), Box<Error>> {
         .build()
         .unwrap();
 
-    let mut game = GameManager {
-        gl: GlGraphics::new(OpenGL::V3_2),
-        started: false,
-        board: gobs::Board::from_length(WINDOW_XY),
-    };
+    let mut game = GameManager::new(WINDOW_XY, 3.0);
 
     println!("PRESS SPACE TO START!");
 
@@ -58,17 +91,27 @@ pub fn run() -> Result<(), Box<Error>> {
             game.render(&r);
         }
 
+        if let Some(u) = e.update_args() {
+            game.update(&u);
+        }
+
         if let Some(Button::Keyboard(key)) = e.press_args() {
-            if key == Key::Space {
-                if !game.started {
-                    println!("START!");
-                    game::add_tile(&mut game.board);
-                }
-            }
+            handle_key_press(&mut game, key);
         }
     }
 
     Ok(())
+}
+
+fn handle_key_press(game: &mut GameManager, key: piston::input::Key) {
+    if key == Key::Space {
+        if !game.started {
+            game::add_tile(&mut game.board);
+        }
+    }
+    if key == Key::Backspace {
+        game.board = gobs::Board::from_length(game.board.length);
+    }
 }
 
 pub mod colours {
@@ -156,7 +199,6 @@ pub mod game {
                                  y_from_index(new_pos, board.length),
                                  board.length / 3.0,
                                  RED);
-        println!("{:?}", new_pos);
         board.tiles[new_pos] = Some(new_tile);
     }
 
@@ -167,14 +209,11 @@ pub mod game {
 
     fn x_from_index(i: usize, board_length: f64) -> f64 {
         let tile_length = board_length / 3.0;
-        println!("{:?} {:?}", i, (i as f64 % 3.0));
-
         ((i as f64 % 3.0) * tile_length) + (0.5 * tile_length)
     }
 
     fn y_from_index(i: usize, board_length: f64) -> f64 {
         let tile_length = board_length / 3.0;
-
         ((i as f64 / 3.0).floor() * tile_length) + (0.5 * tile_length)
     }
 
