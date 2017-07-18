@@ -16,6 +16,7 @@ pub struct GameManager {
     /// Represents the state of the game
     gl: GlGraphics,
     board: gobs::Board,
+    cursor: gobs::Sprite,
     started: bool,
     max_time: f64,
     tile_timer: f64,
@@ -43,6 +44,10 @@ impl GameManager {
         GameManager {
             gl: GlGraphics::new(OpenGL::V3_2),
             board: gobs::Board::from_length(window_size),
+            cursor: gobs::Sprite::new(window_size / 2.0,
+                                      window_size / 2.0,
+                                      window_size / 6.0,
+                                      colours::YELLOW),
             started: false,
             max_time: max_time,
             tile_timer: 0.0,
@@ -142,22 +147,22 @@ pub mod gobs {
     }
 
     #[derive(Debug, Copy, Clone)]
-    pub struct Tile {
+    pub struct Sprite {
         pub rect: [f64; 4],
         pub pos: Point,
         pub colour: Colour,
     }
 
-    impl Tile {
+    impl Sprite {
         /// Returns a tile struct
         ///
         /// ```
         /// use whack::colours;
-        /// use whack::gobs::Tile;
-        /// let tile = Tile::new(100.0, 100.0, 50.0, colours::BLUE);
+        /// use whack::gobs::Sprite;
+        /// let tile = Sprite::new(100.0, 100.0, 50.0, colours::BLUE);
         /// ```
-        pub fn new(x: f64, y: f64, wh: f64, colour: Colour) -> Tile {
-            Tile {
+        pub fn new(x: f64, y: f64, wh: f64, colour: Colour) -> Sprite {
+            Sprite {
                 rect: graphics::rectangle::square(0.0, 0.0, wh),
                 pos: Point { x: x, y: y },
                 colour: colour,
@@ -206,10 +211,10 @@ pub mod gobs {
         pub fn add_tile(&mut self) {
             let new_pos = self.random_position();
             if let Some(i) = new_pos {
-                let new_tile = Tile::new(self.x_from_index(i, self.length),
-                                         self.y_from_index(i, self.length),
-                                         self.length / 3.0,
-                                         RED);
+                let new_tile = Sprite::new(self.x_from_index(i, self.length),
+                                           self.y_from_index(i, self.length),
+                                           self.length / 3.0,
+                                           RED);
                 self.tiles[i] = Some(new_tile);
             }
         }
@@ -239,8 +244,8 @@ pub mod gobs {
         }
     }
 
-    pub type MaybeTile = Option<Tile>;
-    pub type Tiles = [MaybeTile; 9];
+    pub type MaybeSprite = Option<Sprite>;
+    pub type Tiles = [MaybeSprite; 9];
 
     #[cfg(test)]
     mod tests {
