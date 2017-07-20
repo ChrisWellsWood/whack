@@ -30,7 +30,7 @@ impl GameManager {
             board: gobs::Board::from_length(window_size),
             cursor: gobs::Sprite::new(window_size / 2.0,
                                       window_size / 2.0,
-                                      window_size / 6.0,
+                                      window_size / 16.0,
                                       colours::YELLOW),
             started: false,
             max_time: max_time,
