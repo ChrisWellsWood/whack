@@ -23,23 +23,7 @@ pub struct GameManager {
 }
 
 impl GameManager {
-    /// Returns the game manager
-    ///
-    /// This test makes sure that the GameManager can initialise, but it requires the OpenGL
-    /// function pointers to be loaded first, so a window must be initialised.
-    ///
-    /// ```
-    /// extern crate piston;
-    /// extern crate glutin_window;
-    /// extern crate whack;
-    /// const WINDOW_XY: f64 = 300.0;
-    /// let window: glutin_window::GlutinWindow
-    ///     = piston::window::WindowSettings::new("WHACK!", [WINDOW_XY as u32, WINDOW_XY as u32])
-    ///    .exit_on_esc(true)
-    ///    .build()
-    ///    .unwrap();
-    /// let game = whack::GameManager::new(WINDOW_XY, 3.0);
-    /// ```
+    /// Returns the game manager.
     pub fn new(window_size: f64, max_time: f64) -> GameManager {
         GameManager {
             gl: GlGraphics::new(OpenGL::V3_2),
@@ -55,17 +39,14 @@ impl GameManager {
     }
 
     fn render(&mut self, args: &RenderArgs) {
-        let board = &self.board;
+        let sprites = self.get_sprites();
         self.gl.draw(args.viewport(), |c, gl| {
             graphics::clear(colours::BLUE, gl);
-            for otile in board.tiles.iter() {
-                if otile.is_some() {
-                    let tile = otile.unwrap();
-                    let transform = c.transform
-                        .trans(tile.pos.x, tile.pos.y)
-                        .trans(-(tile.rect[2] / 2.0), -(tile.rect[3] / 2.0));
-                    graphics::rectangle(tile.colour, tile.rect, transform, gl);
-                }
+            for sprite in sprites {
+                let transform = c.transform
+                    .trans(sprite.pos.x, sprite.pos.y)
+                    .trans(-(sprite.rect[2] / 2.0), -(sprite.rect[3] / 2.0));
+                graphics::rectangle(sprite.colour, sprite.rect, transform, gl);
             }
         });
     }
@@ -78,6 +59,19 @@ impl GameManager {
                 self.board.add_tile();
             }
         }
+    }
+
+    fn get_sprites(&self) -> Vec<gobs::Sprite> {
+        // Could add tags to sprites and filter them later on
+        // Add field for layer to sprite
+        let mut sprites: Vec<gobs::Sprite> = self.board
+            .tiles
+            .iter()
+            .filter(|x| x.is_some())
+            .map(|x| x.unwrap())
+            .collect();
+        sprites.push(self.cursor);
+        sprites
     }
 }
 
@@ -118,6 +112,34 @@ fn handle_key_press(game: &mut GameManager, key: piston::input::Key) {
     }
     if key == Key::Backspace {
         game.board.clear_board();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    extern crate piston;
+    extern crate glutin_window;
+
+    use super::*;
+
+    fn make_manager() -> GameManager {
+        const WINDOW_XY: f64 = 300.0;
+        let window: glutin_window::GlutinWindow =
+            piston::window::WindowSettings::new("WHACK!", [WINDOW_XY as u32, WINDOW_XY as u32])
+                .exit_on_esc(true)
+                .build()
+                .unwrap();
+        GameManager::new(WINDOW_XY, 3.0)
+    }
+
+    #[test]
+    fn get_sprites() {
+        let mut game = make_manager();
+        let sprites = game.get_sprites();
+        assert_eq!(sprites.len(), 1);
+        game.board.add_tile();
+        let sprites = game.get_sprites();
+        assert_eq!(sprites.len(), 2);
     }
 }
 
