@@ -141,6 +141,17 @@ mod tests {
         let sprites = game.get_sprites();
         assert_eq!(sprites.len(), 2);
     }
+
+    #[test]
+    fn move_cursor() {
+        let mut game = make_manager();
+        game.cursor.translate(-100.0, 0.0);
+        assert_eq!(game.cursor.pos.x, 50.0);
+        assert_eq!(game.cursor.pos.y, 150.0);
+        game.cursor.translate(100.0, 100.0);
+        assert_eq!(game.cursor.pos.x, 150.0);
+        assert_eq!(game.cursor.pos.y, 250.0);
+    }
 }
 
 pub mod colours {
