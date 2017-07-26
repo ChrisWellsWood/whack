@@ -25,12 +25,15 @@ pub struct GameManager {
 impl GameManager {
     /// Returns the game manager.
     pub fn new(window_size: f64, max_time: f64) -> GameManager {
+        let cursor_width = window_size / 16.0;
+        let cursor_height = window_size / 16.0;
         GameManager {
             gl: GlGraphics::new(OpenGL::V3_2),
             board: gobs::Board::from_length(window_size),
-            cursor: gobs::Sprite::new(window_size / 2.0,
-                                      window_size / 2.0,
-                                      window_size / 16.0,
+            cursor: gobs::Sprite::new((window_size / 2.0) - (0.5 * cursor_width),
+                                      (window_size / 2.0) - (0.5 * cursor_height),
+                                      cursor_width,
+                                      cursor_height,
                                       colours::YELLOW),
             started: false,
             max_time: max_time,
@@ -43,10 +46,7 @@ impl GameManager {
         self.gl.draw(args.viewport(), |c, gl| {
             graphics::clear(colours::BLUE, gl);
             for sprite in sprites {
-                let transform = c.transform
-                    .trans(sprite.pos.x, sprite.pos.y)
-                    .trans(-(sprite.rect[2] / 2.0), -(sprite.rect[3] / 2.0));
-                graphics::rectangle(sprite.colour, sprite.rect, transform, gl);
+                graphics::rectangle(sprite.colour, sprite.get_rect(), c.transform, gl);
             }
         });
     }
@@ -219,8 +219,9 @@ pub mod gobs {
 
     #[derive(Debug, Copy, Clone)]
     pub struct Sprite {
-        pub rect: [f64; 4],
         pub pos: Vec2D,
+        pub width: f64,
+        pub height: f64,
         pub colour: Colour,
     }
 
@@ -230,14 +231,19 @@ pub mod gobs {
         /// ```
         /// use whack::colours;
         /// use whack::gobs::Sprite;
-        /// let tile = Sprite::new(100.0, 100.0, 50.0, colours::BLUE);
+        /// let tile = Sprite::new(100.0, 100.0, 50.0, 50.0, colours::BLUE);
         /// ```
-        pub fn new(x: f64, y: f64, wh: f64, colour: Colour) -> Sprite {
+        pub fn new(x: f64, y: f64, width: f64, height: f64, colour: Colour) -> Sprite {
             Sprite {
-                rect: graphics::rectangle::square(0.0, 0.0, wh),
                 pos: Vec2D { x: x, y: y },
-                colour: colour,
+                width,
+                height,
+                colour,
             }
+        }
+
+        pub fn get_rect(&self) -> [f64; 4] {
+            [self.pos.x, self.pos.y, self.width, self.height]
         }
     }
 
@@ -285,6 +291,7 @@ pub mod gobs {
                 let new_tile = Sprite::new(self.x_from_index(i),
                                            self.y_from_index(i),
                                            self.length / 3.0,
+                                           self.length / 3.0,
                                            RED);
                 self.tiles[i] = Some(new_tile);
             }
@@ -302,12 +309,12 @@ pub mod gobs {
 
         pub fn x_from_index(&self, i: usize) -> f64 {
             let tile_length = self.length / 3.0;
-            ((i as f64 % 3.0) * tile_length) + (0.5 * tile_length)
+            ((i as f64 % 3.0) * tile_length)
         }
 
         pub fn y_from_index(&self, i: usize) -> f64 {
             let tile_length = self.length / 3.0;
-            ((i as f64 / 3.0).floor() * tile_length) + (0.5 * tile_length)
+            ((i as f64 / 3.0).floor() * tile_length)
         }
 
         pub fn clear_board(&mut self) {
@@ -357,6 +364,7 @@ pub mod gobs {
             let mut cursor = Sprite::new(window_size / 2.0,
                                          window_size / 2.0,
                                          window_size / 16.0,
+                                         window_size / 16.0,
                                          colours::YELLOW);
             cursor.pos.add(Vec2D {
                 x: -100.0,
@@ -385,19 +393,19 @@ pub mod gobs {
         #[test]
         fn check_x_from_i() {
             let board = Board::from_length(300.0);
-            assert_eq!(board.x_from_index(0), 50.0);
-            assert_eq!(board.x_from_index(1), 150.0);
-            assert_eq!(board.x_from_index(2), 250.0);
-            assert_eq!(board.x_from_index(8), 250.0);
+            assert_eq!(board.x_from_index(0), 0.0);
+            assert_eq!(board.x_from_index(1), 100.0);
+            assert_eq!(board.x_from_index(2), 200.0);
+            assert_eq!(board.x_from_index(8), 200.0);
         }
 
         #[test]
         fn check_y_from_i() {
             let board = Board::from_length(300.0);
-            assert_eq!(board.y_from_index(0), 50.0);
-            assert_eq!(board.y_from_index(1), 50.0);
-            assert_eq!(board.y_from_index(2), 50.0);
-            assert_eq!(board.y_from_index(8), 250.0);
+            assert_eq!(board.y_from_index(0), 0.0);
+            assert_eq!(board.y_from_index(1), 0.0);
+            assert_eq!(board.y_from_index(2), 0.0);
+            assert_eq!(board.y_from_index(8), 200.0);
         }
     }
 }
