@@ -105,13 +105,51 @@ pub fn run() -> Result<(), Box<Error>> {
 }
 
 fn handle_key_press(game: &mut GameManager, key: piston::input::Key) {
-    if key == Key::Space {
-        if !game.started {
+    if game.started {
+        handle_movement(game, key);
+        if key == Key::Backspace {
+            game.board.clear_board();
+        }
+    } else {
+        if key == Key::Space {
             game.started = true;
         }
     }
-    if key == Key::Backspace {
-        game.board.clear_board();
+}
+
+fn handle_movement(game: &mut GameManager, key: piston::input::Key) {
+    // This logic should be moved inside a game object
+    const MOVEMENT_KEYS: [piston::input::Key; 4] = [Key::Up, Key::Down, Key::Left, Key::Right];
+    if MOVEMENT_KEYS.contains(&key) {
+        let move_dist: f64 = game.board.length / 3.0;
+        let move_vec = match key {
+            Key::Up => {
+                gobs::Vec2D {
+                    x: 0.0,
+                    y: -move_dist,
+                }
+            }
+            Key::Down => {
+                gobs::Vec2D {
+                    x: 0.0,
+                    y: move_dist,
+                }
+            }
+            Key::Right => {
+                gobs::Vec2D {
+                    x: move_dist,
+                    y: 0.0,
+                }
+            }
+            Key::Left => {
+                gobs::Vec2D {
+                    x: -move_dist,
+                    y: 0.0,
+                }
+            }
+            _ => gobs::Vec2D { x: 0.0, y: 0.0 },
+        };
+        game.cursor.pos.add(move_vec);
     }
 }
 
@@ -141,17 +179,6 @@ mod tests {
         let sprites = game.get_sprites();
         assert_eq!(sprites.len(), 2);
     }
-
-    #[test]
-    fn move_cursor() {
-        let mut game = make_manager();
-        game.cursor.translate(-100.0, 0.0);
-        assert_eq!(game.cursor.pos.x, 50.0);
-        assert_eq!(game.cursor.pos.y, 150.0);
-        game.cursor.translate(100.0, 100.0);
-        assert_eq!(game.cursor.pos.x, 150.0);
-        assert_eq!(game.cursor.pos.y, 250.0);
-    }
 }
 
 pub mod colours {
@@ -174,15 +201,26 @@ pub mod gobs {
     use colours::{Colour, RED};
 
     #[derive(Debug, Copy, Clone, PartialEq)]
-    pub struct Point {
+    pub struct Vec2D {
         pub x: f64,
         pub y: f64,
+    }
+
+    impl Vec2D {
+        pub fn new() -> Vec2D {
+            Vec2D { x: 0.0, y: 0.0 }
+        }
+
+        pub fn add(&mut self, other: Vec2D) {
+            self.x += other.x;
+            self.y += other.y;
+        }
     }
 
     #[derive(Debug, Copy, Clone)]
     pub struct Sprite {
         pub rect: [f64; 4],
-        pub pos: Point,
+        pub pos: Vec2D,
         pub colour: Colour,
     }
 
@@ -197,7 +235,7 @@ pub mod gobs {
         pub fn new(x: f64, y: f64, wh: f64, colour: Colour) -> Sprite {
             Sprite {
                 rect: graphics::rectangle::square(0.0, 0.0, wh),
-                pos: Point { x: x, y: y },
+                pos: Vec2D { x: x, y: y },
                 colour: colour,
             }
         }
@@ -244,8 +282,8 @@ pub mod gobs {
         pub fn add_tile(&mut self) {
             let new_pos = self.random_position();
             if let Some(i) = new_pos {
-                let new_tile = Sprite::new(self.x_from_index(i, self.length),
-                                           self.y_from_index(i, self.length),
+                let new_tile = Sprite::new(self.x_from_index(i),
+                                           self.y_from_index(i),
                                            self.length / 3.0,
                                            RED);
                 self.tiles[i] = Some(new_tile);
@@ -262,13 +300,13 @@ pub mod gobs {
             Some(sample[0])
         }
 
-        fn x_from_index(&self, i: usize, board_length: f64) -> f64 {
-            let tile_length = board_length / 3.0;
+        pub fn x_from_index(&self, i: usize) -> f64 {
+            let tile_length = self.length / 3.0;
             ((i as f64 % 3.0) * tile_length) + (0.5 * tile_length)
         }
 
-        fn y_from_index(&self, i: usize, board_length: f64) -> f64 {
-            let tile_length = board_length / 3.0;
+        pub fn y_from_index(&self, i: usize) -> f64 {
+            let tile_length = self.length / 3.0;
             ((i as f64 / 3.0).floor() * tile_length) + (0.5 * tile_length)
         }
 
@@ -283,6 +321,7 @@ pub mod gobs {
     #[cfg(test)]
     mod tests {
         use super::*;
+        use colours;
 
         #[test]
         fn add_tile() {
@@ -313,6 +352,27 @@ pub mod gobs {
         }
 
         #[test]
+        fn move_cursor() {
+            let window_size = 300.0;
+            let mut cursor = Sprite::new(window_size / 2.0,
+                                         window_size / 2.0,
+                                         window_size / 16.0,
+                                         colours::YELLOW);
+            cursor.pos.add(Vec2D {
+                x: -100.0,
+                y: 0.0,
+            });
+            assert_eq!(cursor.pos.x, 50.0);
+            assert_eq!(cursor.pos.y, 150.0);
+            cursor.pos.add(Vec2D {
+                x: 100.0,
+                y: 100.0,
+            });
+            assert_eq!(cursor.pos.x, 150.0);
+            assert_eq!(cursor.pos.y, 250.0);
+        }
+
+        #[test]
         fn gen_random_index() {
             let board = Board::from_length(300.0);
             for _ in 1..10 {
@@ -325,19 +385,19 @@ pub mod gobs {
         #[test]
         fn check_x_from_i() {
             let board = Board::from_length(300.0);
-            assert_eq!(board.x_from_index(0, 300.0), 50.0);
-            assert_eq!(board.x_from_index(1, 300.0), 150.0);
-            assert_eq!(board.x_from_index(2, 300.0), 250.0);
-            assert_eq!(board.x_from_index(8, 300.0), 250.0);
+            assert_eq!(board.x_from_index(0), 50.0);
+            assert_eq!(board.x_from_index(1), 150.0);
+            assert_eq!(board.x_from_index(2), 250.0);
+            assert_eq!(board.x_from_index(8), 250.0);
         }
 
         #[test]
         fn check_y_from_i() {
             let board = Board::from_length(300.0);
-            assert_eq!(board.y_from_index(0, 300.0), 50.0);
-            assert_eq!(board.y_from_index(1, 300.0), 50.0);
-            assert_eq!(board.y_from_index(2, 300.0), 50.0);
-            assert_eq!(board.y_from_index(8, 300.0), 250.0);
+            assert_eq!(board.y_from_index(0), 50.0);
+            assert_eq!(board.y_from_index(1), 50.0);
+            assert_eq!(board.y_from_index(2), 50.0);
+            assert_eq!(board.y_from_index(8), 250.0);
         }
     }
 }
