@@ -236,15 +236,47 @@ pub mod gobs {
         pub fn new(x: f64, y: f64, width: f64, height: f64, colour: Colour) -> Sprite {
             Sprite {
                 pos: Vec2D { x: x, y: y },
-                width,
-                height,
-                colour,
+                width: width,
+                height: height,
+                colour: colour,
             }
         }
 
         pub fn get_rect(&self) -> [f64; 4] {
             [self.pos.x, self.pos.y, self.width, self.height]
         }
+
+        pub fn get_sides(&self) -> Sides {
+            // [top, bottom, left, right]
+            let top = self.pos.y;
+            let bottom = self.pos.y + self.height;
+            let left = self.pos.x;
+            let right = self.pos.x + self.width;
+            Sides {
+                top: top,
+                bottom: bottom,
+                left: left,
+                right: right,
+            }
+        }
+
+        pub fn is_overlapping(&self, other: Sprite) -> bool {
+            if (self.pos.x + self.width < other.pos.x) ||
+               (other.pos.x + other.width < self.pos.x) ||
+               (self.pos.y + self.height < other.pos.y) ||
+               (other.pos.y + other.height < self.pos.y) {
+                return false;
+            }
+            true
+        }
+    }
+
+    #[derive(Debug)]
+    pub struct Sides {
+        pub top: f64,
+        pub bottom: f64,
+        pub left: f64,
+        pub right: f64,
     }
 
     #[derive(Debug)]
@@ -356,6 +388,43 @@ pub mod gobs {
             assert!(board.is_full());
             board.clear_board();
             assert!(!board.is_full());
+        }
+
+        #[test]
+        fn is_overlapping() {
+            let window_size = 300.0;
+            let mut board = Board::from_length(window_size);
+            let mut cursor = Sprite::new(window_size / 2.0,
+                                         window_size / 2.0,
+                                         window_size / 16.0,
+                                         window_size / 16.0,
+                                         colours::YELLOW);
+            for _ in 0..9 {
+                board.add_tile();
+            }
+            let overlapping: Vec<bool> = board.tiles
+                .iter()
+                .map(|x| x.unwrap())
+                .map(|x| cursor.is_overlapping(x))
+                .collect();
+            assert_eq!(overlapping,
+                       [false, false, false, false, true, false, false, false, false]);
+            cursor.pos.x -= 100.0;
+            let overlapping: Vec<bool> = board.tiles
+                .iter()
+                .map(|x| x.unwrap())
+                .map(|x| cursor.is_overlapping(x))
+                .collect();
+            assert_eq!(overlapping,
+                       [false, false, false, true, false, false, false, false, false]);
+            cursor.pos.y -= 100.0;
+            let overlapping: Vec<bool> = board.tiles
+                .iter()
+                .map(|x| x.unwrap())
+                .map(|x| cursor.is_overlapping(x))
+                .collect();
+            assert_eq!(overlapping,
+                       [true, false, false, false, false, false, false, false, false]);
         }
 
         #[test]
