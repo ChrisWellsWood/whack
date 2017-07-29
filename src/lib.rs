@@ -245,20 +245,6 @@ pub mod gobs {
             [self.pos.x, self.pos.y, self.width, self.height]
         }
 
-        pub fn get_sides(&self) -> Sides {
-            // [top, bottom, left, right]
-            let top = self.pos.y;
-            let bottom = self.pos.y + self.height;
-            let left = self.pos.x;
-            let right = self.pos.x + self.width;
-            Sides {
-                top: top,
-                bottom: bottom,
-                left: left,
-                right: right,
-            }
-        }
-
         pub fn is_overlapping(&self, other: Sprite) -> bool {
             if (self.pos.x + self.width < other.pos.x) ||
                (other.pos.x + other.width < self.pos.x) ||
@@ -268,14 +254,6 @@ pub mod gobs {
             }
             true
         }
-    }
-
-    #[derive(Debug)]
-    pub struct Sides {
-        pub top: f64,
-        pub bottom: f64,
-        pub left: f64,
-        pub right: f64,
     }
 
     #[derive(Debug)]
