@@ -6,7 +6,6 @@ extern crate opengl_graphics;
 
 use std::error::Error;
 use glutin_window::GlutinWindow as Window;
-use graphics::Transformed;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::event_loop::*;
 use piston::input::*;
