@@ -17,6 +17,7 @@ pub struct GameManager {
     board: gobs::Board,
     cursor: gobs::Sprite,
     started: bool,
+    score: u32,
     max_time: f64,
     tile_timer: f64,
 }
@@ -35,6 +36,7 @@ impl GameManager {
                                       cursor_height,
                                       colours::YELLOW),
             started: false,
+            score: 0,
             max_time: max_time,
             tile_timer: 0.0,
         }
@@ -169,6 +171,8 @@ fn whack(game: &mut GameManager, key: piston::input::Key) {
         if overlapping.len() > 0 {
             assert_eq!(overlapping.len(), 1);
             game.board.tiles[overlapping[0]].take();
+            game.score += 1;
+            println!("{}", game.score);
         }
     }
 }
