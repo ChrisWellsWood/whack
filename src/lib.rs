@@ -16,7 +16,7 @@ pub struct GameManager {
     gl: GlGraphics,
     board: gobs::Board,
     cursor: gobs::Sprite,
-    started: bool,
+    state: GameState,
     score: u32,
     max_time: f64,
     tile_timer: f64,
@@ -35,7 +35,7 @@ impl GameManager {
                                       cursor_width,
                                       cursor_height,
                                       colours::YELLOW),
-            started: false,
+            state: GameState::Ready,
             score: 0,
             max_time: max_time,
             tile_timer: 0.0,
@@ -53,11 +53,14 @@ impl GameManager {
     }
 
     fn update(&mut self, args: &UpdateArgs) {
-        if self.started {
+        if let GameState::Playing = self.state {
             self.tile_timer -= args.dt;
             if self.tile_timer < 0.0 {
                 self.tile_timer = self.max_time;
                 self.board.add_tile();
+            }
+            if self.board.is_full() {
+                self.state = GameState::Lose;
             }
         }
     }
@@ -74,6 +77,14 @@ impl GameManager {
         sprites.push(self.cursor);
         sprites
     }
+}
+
+#[derive(Debug)]
+enum GameState {
+    Ready,
+    Playing,
+    Win,
+    Lose,
 }
 
 pub fn run() -> Result<(), Box<Error>> {
@@ -98,27 +109,26 @@ pub fn run() -> Result<(), Box<Error>> {
         }
 
         if let Some(Button::Keyboard(key)) = e.press_args() {
-            handle_key_press(&mut game, key);
+            match game.state {
+                GameState::Ready => ready_key_press(&mut game, key),
+                GameState::Playing => playing_key_press(&mut game, key),
+                _ => (),
+            }
         }
     }
 
     Ok(())
 }
 
-fn handle_key_press(game: &mut GameManager, key: piston::input::Key) {
-    if game.started {
-        handle_movement(game, key);
-        whack(game, key);
-        if key == Key::Backspace {
-            game.board.clear_board();
-        }
-        if key == Key::Space {
-        }
-    } else {
-        if key == Key::Space {
-            game.started = true;
-        }
+fn ready_key_press(game: &mut GameManager, key: piston::input::Key) {
+    if key == Key::Space {
+        game.state = GameState::Playing;
     }
+}
+
+fn playing_key_press(game: &mut GameManager, key: piston::input::Key) {
+    handle_movement(game, key);
+    whack(game, key);
 }
 
 fn handle_movement(game: &mut GameManager, key: piston::input::Key) {
@@ -172,7 +182,7 @@ fn whack(game: &mut GameManager, key: piston::input::Key) {
             assert_eq!(overlapping.len(), 1);
             game.board.tiles[overlapping[0]].take();
             game.score += 1;
-            println!("{}", game.score);
+            println!("{:?}", game.state);
         }
     }
 }
