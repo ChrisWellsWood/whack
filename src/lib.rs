@@ -106,8 +106,11 @@ pub fn run() -> Result<(), Box<Error>> {
 fn handle_key_press(game: &mut GameManager, key: piston::input::Key) {
     if game.started {
         handle_movement(game, key);
+        whack(game, key);
         if key == Key::Backspace {
             game.board.clear_board();
+        }
+        if key == Key::Space {
         }
     } else {
         if key == Key::Space {
@@ -149,6 +152,24 @@ fn handle_movement(game: &mut GameManager, key: piston::input::Key) {
             _ => gobs::Vec2D { x: 0.0, y: 0.0 },
         };
         game.cursor.pos.add(move_vec);
+    }
+}
+
+fn whack(game: &mut GameManager, key: piston::input::Key) {
+    // Checks if user has whacked a valid tile.
+    if key == Key::Space {
+        let overlapping: Vec<usize> = game.board
+            .tiles
+            .iter()
+            .map(|x| x.map_or(false, |y| y.is_overlapping(game.cursor)))
+            .enumerate()
+            .filter(|x| x.1)
+            .map(|x| x.0)
+            .collect();
+        if overlapping.len() > 0 {
+            assert_eq!(overlapping.len(), 1);
+            game.board.tiles[overlapping[0]].take();
+        }
     }
 }
 
