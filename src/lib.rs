@@ -42,6 +42,17 @@ impl GameManager {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.board.clear_board();
+        self.cursor.pos = gobs::Vec2D {
+            x: (self.board.length / 2.0) - (0.5 * self.cursor.width),
+            y: (self.board.length / 2.0) - (0.5 * self.cursor.height),
+        };
+        self.state = GameState::Ready;
+        self.score = 0;
+        self.tile_timer = 0.0;
+    }
+
     fn render(&mut self, args: &RenderArgs) {
         let sprites = self.get_sprites();
         self.gl.draw(args.viewport(), |c, gl| {
@@ -79,7 +90,15 @@ impl GameManager {
     }
 }
 
-#[derive(Debug)]
+impl PartialEq for GameManager {
+    fn eq(&self, other: &GameManager) -> bool {
+        (self.board == other.board) && (self.cursor == other.cursor) &&
+        (self.state == other.state) && (self.score == other.score) &&
+        (self.max_time == other.max_time) && (self.tile_timer == other.tile_timer)
+    }
+}
+
+#[derive(Debug, PartialEq)]
 enum GameState {
     Ready,
     Playing,
@@ -112,6 +131,7 @@ pub fn run() -> Result<(), Box<Error>> {
             match game.state {
                 GameState::Ready => ready_key_press(&mut game, key),
                 GameState::Playing => playing_key_press(&mut game, key),
+                GameState::Lose => lose_key_press(&mut game, key),
                 _ => (),
             }
         }
@@ -129,6 +149,13 @@ fn ready_key_press(game: &mut GameManager, key: piston::input::Key) {
 fn playing_key_press(game: &mut GameManager, key: piston::input::Key) {
     handle_movement(game, key);
     whack(game, key);
+}
+
+fn lose_key_press(game: &mut GameManager, key: piston::input::Key) {
+    if key == Key::Space {
+        game.reset();
+        game.state = GameState::Ready;
+    }
 }
 
 fn handle_movement(game: &mut GameManager, key: piston::input::Key) {
@@ -213,6 +240,21 @@ mod tests {
         let sprites = game.get_sprites();
         assert_eq!(sprites.len(), 2);
     }
+
+    #[test]
+    fn reset_game() {
+        let game1 = make_manager();
+        let mut game2 = make_manager();
+        assert!(game1 == game2);
+        game2.cursor.pos.x = 50.0;
+        game2.board.add_tile();
+        game2.board.add_tile();
+        game2.state = GameState::Lose;
+        game2.score = 200;
+        assert!(game1 != game2);
+        game2.reset();
+        assert!(game1 == game2);
+    }
 }
 
 pub mod colours {
@@ -251,7 +293,7 @@ pub mod gobs {
         }
     }
 
-    #[derive(Debug, Copy, Clone)]
+    #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct Sprite {
         pub pos: Vec2D,
         pub width: f64,
@@ -291,7 +333,7 @@ pub mod gobs {
         }
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     pub struct Board {
         pub tiles: Tiles,
         pub length: f64,
