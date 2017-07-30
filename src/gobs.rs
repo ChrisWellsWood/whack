@@ -83,7 +83,7 @@ impl Sprite {
         [self.pos.x, self.pos.y, self.width, self.height]
     }
 
-    /// Tests if the `Sprite` overlaps with a reference sprite.
+    /// Tests if the `Sprite` overlaps with a reference `Sprite`.
     ///
     /// # Examples
     ///
@@ -94,11 +94,11 @@ impl Sprite {
     /// let s1 = Sprite::new(100.0, 100.0, 50.0, 50.0, colours::YELLOW);
     /// let s2 = Sprite::new(125.0, 100.0, 50.0, 50.0, colours::YELLOW);
     /// let s3 = Sprite::new(155.0, 100.0, 50.0, 50.0, colours::YELLOW);
-    /// assert!(s1.is_overlapping(s2));
-    /// assert!(!s1.is_overlapping(s3));
-    /// assert!(s2.is_overlapping(s3));
+    /// assert!(s1.is_overlapping(&s2));
+    /// assert!(!s1.is_overlapping(&s3));
+    /// assert!(s2.is_overlapping(&s3));
     /// ```
-    pub fn is_overlapping(&self, other: Sprite) -> bool {
+    pub fn is_overlapping(&self, other: &Sprite) -> bool {
         if (self.pos.x + self.width < other.pos.x) || (other.pos.x + other.width < self.pos.x) ||
            (self.pos.y + self.height < other.pos.y) ||
            (other.pos.y + other.height < self.pos.y) {
@@ -245,7 +245,7 @@ mod tests {
         let overlapping: Vec<bool> = board.tiles
             .iter()
             .map(|x| x.unwrap())
-            .map(|x| cursor.is_overlapping(x))
+            .map(|x| cursor.is_overlapping(&x))
             .collect();
         assert_eq!(overlapping,
                    [false, false, false, false, true, false, false, false, false]);
@@ -253,7 +253,7 @@ mod tests {
         let overlapping: Vec<bool> = board.tiles
             .iter()
             .map(|x| x.unwrap())
-            .map(|x| cursor.is_overlapping(x))
+            .map(|x| cursor.is_overlapping(&x))
             .collect();
         assert_eq!(overlapping,
                    [false, false, false, true, false, false, false, false, false]);
@@ -261,7 +261,7 @@ mod tests {
         let overlapping: Vec<bool> = board.tiles
             .iter()
             .map(|x| x.unwrap())
-            .map(|x| cursor.is_overlapping(x))
+            .map(|x| cursor.is_overlapping(&x))
             .collect();
         assert_eq!(overlapping,
                    [true, false, false, false, false, false, false, false, false]);

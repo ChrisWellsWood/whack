@@ -237,7 +237,7 @@ impl GameManager {
             let overlapping: Vec<usize> = self.board
                 .tiles
                 .iter()
-                .map(|x| x.map_or(false, |y| y.is_overlapping(self.cursor)))
+                .map(|x| x.map_or(false, |y| y.is_overlapping(&self.cursor)))
                 .enumerate()
                 .filter(|x| x.1)
                 .map(|x| x.0)
