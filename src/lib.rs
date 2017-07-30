@@ -1,3 +1,5 @@
+//! Contains the data structures and functions used to run an instance of **Whack!**
+
 extern crate rand;
 extern crate piston;
 extern crate graphics;
@@ -11,14 +13,16 @@ use piston::event_loop::*;
 use piston::input::*;
 use piston::window::WindowSettings;
 
+/// Represents the state of the game.
 #[derive(Debug, PartialEq)]
-enum GameState {
+pub enum GameState {
     Ready,
     Playing,
     Win,
     Lose,
 }
 
+/// Initialises an instance of **Whack!**
 pub fn run() -> Result<(), Box<Error>> {
     const WINDOW_XY: f64 = 300.0;
     let window: Window = WindowSettings::new("WHACK!", [WINDOW_XY as u32, WINDOW_XY as u32])
@@ -29,15 +33,15 @@ pub fn run() -> Result<(), Box<Error>> {
     game.start(window)
 }
 
+/// The `GameManager` struct contains data and methods to run an instance of **Whack!**
 pub struct GameManager {
-    /// Represents the state of the game
-    gl: GlGraphics,
-    board: gobs::Board,
-    cursor: gobs::Sprite,
-    state: GameState,
-    score: u32,
-    max_time: f64,
-    tile_timer: f64,
+    pub gl: GlGraphics,
+    pub board: gobs::Board,
+    pub cursor: gobs::Sprite,
+    pub state: GameState,
+    pub score: u32,
+    pub max_time: f64,
+    pub tile_timer: f64,
 }
 
 impl PartialEq for GameManager {
@@ -49,7 +53,23 @@ impl PartialEq for GameManager {
 }
 
 impl GameManager {
-    /// Returns the game manager.
+    /// Returns a new game manager struct.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// extern crate whack;
+    /// extern crate piston;
+    /// extern crate glutin_window;
+    ///
+    /// const WINDOW_XY: f64 = 300.0;
+    /// let window: glutin_window::GlutinWindow =
+    ///     piston::window::WindowSettings::new("WHACK!", [WINDOW_XY as u32, WINDOW_XY as u32])
+    ///         .exit_on_esc(true)
+    ///         .build()
+    ///         .unwrap();
+    /// whack::GameManager::new(WINDOW_XY, 3.0);
+    /// ```
     pub fn new(window_size: f64, max_time: f64) -> GameManager {
         let cursor_width = window_size / 16.0;
         let cursor_height = window_size / 16.0;
@@ -68,6 +88,19 @@ impl GameManager {
         }
     }
 
+    /// Resets the state of the `GameManager`.
+    pub fn reset(&mut self) {
+        self.board.clear_board();
+        self.cursor.pos = gobs::Vec2D {
+            x: (self.board.length / 2.0) - (0.5 * self.cursor.width),
+            y: (self.board.length / 2.0) - (0.5 * self.cursor.height),
+        };
+        self.state = GameState::Ready;
+        self.score = 0;
+        self.tile_timer = 0.0;
+    }
+
+    /// Initialises the event loop for the game instance.
     pub fn start(&mut self, mut window: Window) -> Result<(), Box<Error>> {
         println!("PRESS SPACE TO START!");
         let mut events = Events::new(EventSettings::new());
@@ -81,24 +114,14 @@ impl GameManager {
             }
 
             if let Some(Button::Keyboard(key)) = e.press_args() {
-                self.manage_input(key);
+                self.input(key);
             }
         }
 
         Ok(())
     }
 
-    pub fn reset(&mut self) {
-        self.board.clear_board();
-        self.cursor.pos = gobs::Vec2D {
-            x: (self.board.length / 2.0) - (0.5 * self.cursor.width),
-            y: (self.board.length / 2.0) - (0.5 * self.cursor.height),
-        };
-        self.state = GameState::Ready;
-        self.score = 0;
-        self.tile_timer = 0.0;
-    }
-
+    /// Called by the event loop when a `Render` event is recieved.
     fn render(&mut self, args: &RenderArgs) {
         let sprites = self.get_sprites();
         self.gl.draw(args.viewport(), |c, gl| {
@@ -109,6 +132,7 @@ impl GameManager {
         });
     }
 
+    /// Called by the event loop when an `Update` event is recieved.
     fn update(&mut self, args: &UpdateArgs) {
         match self.state {
             GameState::Playing => self.playing_update(args),
@@ -116,6 +140,7 @@ impl GameManager {
         }
     }
 
+    /// Called by `update` when the `GameState` is `Playing`.
     fn playing_update(&mut self, args: &UpdateArgs) {
         self.tile_timer -= args.dt;
         if self.tile_timer < 0.0 {
@@ -128,7 +153,8 @@ impl GameManager {
         }
     }
 
-    fn manage_input(&mut self, key: piston::input::Key) {
+    /// Called by the event loop when an `Input` event is recieved.
+    fn input(&mut self, key: piston::input::Key) {
         match self.state {
             GameState::Ready => self.ready_key_press(key),
             GameState::Playing => self.playing_key_press(key),
@@ -137,17 +163,20 @@ impl GameManager {
         }
     }
 
+    /// Called by `input` when the `GameState` is `Ready`.
     fn ready_key_press(&mut self, key: piston::input::Key) {
         if key == Key::Space {
             self.state = GameState::Playing;
         }
     }
 
+    /// Called by `input` when the `GameState` is `Playing`.
     fn playing_key_press(&mut self, key: piston::input::Key) {
         self.handle_movement(key);
         self.whack(key);
     }
 
+    /// Called by `input` when the `GameState` is `Lose`.
     fn lose_key_press(&mut self, key: piston::input::Key) {
         if key == Key::Space {
             self.reset();
@@ -155,6 +184,7 @@ impl GameManager {
         }
     }
 
+    /// Handles movement input when the
     fn handle_movement(&mut self, key: piston::input::Key) {
         const MOVEMENT_KEYS: [piston::input::Key; 4] = [Key::Up, Key::Down, Key::Left, Key::Right];
         if MOVEMENT_KEYS.contains(&key) {
@@ -190,8 +220,8 @@ impl GameManager {
         }
     }
 
+    /// Checks if user has whacked a valid tile.
     fn whack(&mut self, key: piston::input::Key) {
-        // Checks if user has whacked a valid tile.
         if key == Key::Space {
             let overlapping: Vec<usize> = self.board
                 .tiles
@@ -268,6 +298,8 @@ mod tests {
 }
 
 pub mod colours {
+    //! Defines constant values for various colours.
+
     pub type Colour = [f32; 4];
     pub const BLUE: Colour = [0.0, 0.0, 1.0, 1.0];
     pub const RED: Colour = [1.0, 0.0, 0.0, 1.0];
@@ -280,12 +312,14 @@ pub mod colours {
 }
 
 pub mod gobs {
+    //! Contains code for various different game objects used in **Whack!**
     extern crate graphics;
     extern crate rand;
 
     use rand::sample;
     use colours::{Colour, RED};
 
+    /// Represents two-dimensional vector.
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct Vec2D {
         pub x: f64,
@@ -293,16 +327,34 @@ pub mod gobs {
     }
 
     impl Vec2D {
-        pub fn new() -> Vec2D {
+        /// Returns a new `Vec2D` instance.
+        pub fn new(x: f64, y: f64) -> Vec2D {
+            Vec2D { x: x, y: y }
+        }
+
+        /// Returns an new `Vec2D` instance where `x` and `y` are equal to `0.0`.
+        pub fn empty() -> Vec2D {
             Vec2D { x: 0.0, y: 0.0 }
         }
 
+        /// Updates the fields of the `Vec2D` by pairwise addition of another instance.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// use whack::gobs::Vec2D;
+        ///
+        /// let mut v1 = Vec2D::new(10.0, -13.2);
+        /// let v2 = Vec2D::new(-57.2, -99.3);
+        /// v1.add(v2);
+        /// ```
         pub fn add(&mut self, other: Vec2D) {
             self.x += other.x;
             self.y += other.y;
         }
     }
 
+    /// Represents a sprite that can be rendered.
     #[derive(Debug, Copy, Clone, PartialEq)]
     pub struct Sprite {
         pub pos: Vec2D,
@@ -312,11 +364,14 @@ pub mod gobs {
     }
 
     impl Sprite {
-        /// Returns a tile struct
+        /// Returns a tile struct.
+        ///
+        /// # Examples
         ///
         /// ```
         /// use whack::colours;
         /// use whack::gobs::Sprite;
+        ///
         /// let tile = Sprite::new(100.0, 100.0, 50.0, 50.0, colours::BLUE);
         /// ```
         pub fn new(x: f64, y: f64, width: f64, height: f64, colour: Colour) -> Sprite {
@@ -328,10 +383,35 @@ pub mod gobs {
             }
         }
 
+        /// Creates a rect type array from the `Sprite`.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// use whack::colours;
+        /// use whack::gobs::Sprite;
+        ///
+        /// let tile = Sprite::new(100.0, 100.0, 50.0, 50.0, colours::GREEN);
+        /// assert_eq!([tile.pos.x, tile.pos.y, tile.width, tile.height], tile.get_rect())
         pub fn get_rect(&self) -> [f64; 4] {
             [self.pos.x, self.pos.y, self.width, self.height]
         }
 
+        /// Tests if the `Sprite` overlaps with a reference sprite.
+        ///
+        /// # Examples
+        ///
+        /// ```
+        /// use whack::gobs::Sprite;
+        /// use whack::colours;
+        ///
+        /// let s1 = Sprite::new(100.0, 100.0, 50.0, 50.0, colours::YELLOW);
+        /// let s2 = Sprite::new(125.0, 100.0, 50.0, 50.0, colours::YELLOW);
+        /// let s3 = Sprite::new(155.0, 100.0, 50.0, 50.0, colours::YELLOW);
+        /// assert!(s1.is_overlapping(s2));
+        /// assert!(!s1.is_overlapping(s3));
+        /// assert!(s2.is_overlapping(s3));
+        /// ```
         pub fn is_overlapping(&self, other: Sprite) -> bool {
             if (self.pos.x + self.width < other.pos.x) ||
                (other.pos.x + other.width < self.pos.x) ||
@@ -343,6 +423,7 @@ pub mod gobs {
         }
     }
 
+    /// Represents the game board.
     #[derive(Debug, PartialEq)]
     pub struct Board {
         pub tiles: Tiles,
@@ -352,8 +433,11 @@ pub mod gobs {
     impl Board {
         /// Returns a Board struct with an empty Tiles array
         ///
+        /// # Examples
+        ///
         /// ```
         /// use whack::gobs::Board;
+        ///
         /// let board = Board::from_length(300.0);
         /// ```
         pub fn from_length(length: f64) -> Board {
@@ -363,6 +447,7 @@ pub mod gobs {
             }
         }
 
+        /// Returns a vector containing the indices of all the free positions on the `Board`.
         pub fn free_positions(&self) -> Vec<usize> {
             let positions: Vec<usize> = self.tiles
                 .iter()
@@ -373,6 +458,7 @@ pub mod gobs {
             positions
         }
 
+        /// True if there are no free positions on the `Board`.
         pub fn is_full(&self) -> bool {
             if self.free_positions().is_empty() {
                 true
@@ -381,6 +467,7 @@ pub mod gobs {
             }
         }
 
+        /// Adds a tile to a random position on the `Board`.
         pub fn add_tile(&mut self) {
             let new_pos = self.random_position();
             if let Some(i) = new_pos {
@@ -393,6 +480,7 @@ pub mod gobs {
             }
         }
 
+        /// Generates a random index if the `Board` is not full.
         fn random_position(&self) -> Option<usize> {
             let free_positions = self.free_positions();
             if free_positions.is_empty() {
@@ -403,23 +491,26 @@ pub mod gobs {
             Some(sample[0])
         }
 
+        /// Calculates the x coordinate of a position on the `Board` from its index.
         pub fn x_from_index(&self, i: usize) -> f64 {
             let tile_length = self.length / 3.0;
             ((i as f64 % 3.0) * tile_length)
         }
 
+        /// Calculates the y coordinate of a position on the `Board` from its index.
         pub fn y_from_index(&self, i: usize) -> f64 {
             let tile_length = self.length / 3.0;
             ((i as f64 / 3.0).floor() * tile_length)
         }
 
+        /// Removes all tiles from the `Board`.
         pub fn clear_board(&mut self) {
             self.tiles = [None; 9];
         }
     }
 
-    pub type MaybeSprite = Option<Sprite>;
-    pub type Tiles = [MaybeSprite; 9];
+    /// Array that represents the tile positions of the game `Board`.
+    pub type Tiles = [Option<Sprite>; 9];
 
     #[cfg(test)]
     mod tests {
