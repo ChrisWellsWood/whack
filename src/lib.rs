@@ -29,7 +29,7 @@ pub fn run() -> Result<(), Box<Error>> {
         .exit_on_esc(true)
         .build()
         .unwrap();
-    let mut game = GameManager::new(WINDOW_XY, 1.0);
+    let mut game = GameManager::new(WINDOW_XY, 1.0, 0.1);
     game.start(window)
 }
 
@@ -41,6 +41,7 @@ pub struct GameManager {
     pub state: GameState,
     pub score: u32,
     pub max_time: f64,
+    pub min_time: f64,
     pub tile_timer: f64,
 }
 
@@ -68,9 +69,9 @@ impl GameManager {
     ///         .exit_on_esc(true)
     ///         .build()
     ///         .unwrap();
-    /// whack::GameManager::new(WINDOW_XY, 3.0);
+    /// whack::GameManager::new(WINDOW_XY, 3.0, 1.0);
     /// ```
-    pub fn new(window_size: f64, max_time: f64) -> GameManager {
+    pub fn new(window_size: f64, max_time: f64, min_time: f64) -> GameManager {
         let cursor_width = window_size / 16.0;
         let cursor_height = window_size / 16.0;
         GameManager {
@@ -84,6 +85,7 @@ impl GameManager {
             state: GameState::Ready,
             score: 0,
             max_time: max_time,
+            min_time: min_time,
             tile_timer: 0.0,
         }
     }
@@ -144,7 +146,13 @@ impl GameManager {
     fn playing_update(&mut self, args: &UpdateArgs) {
         self.tile_timer -= args.dt;
         if self.tile_timer < 0.0 {
-            self.tile_timer = self.max_time;
+            if self.score < 100 {
+                let score_delta = (self.max_time - self.min_time) * (self.score as f64 / 100.0);
+                self.tile_timer = self.max_time - score_delta;
+            } else {
+                self.tile_timer = self.min_time;
+            }
+            println!("{}", self.tile_timer);
             self.board.add_tile();
         }
         if self.board.is_full() {
@@ -268,7 +276,7 @@ mod tests {
                 .exit_on_esc(true)
                 .build()
                 .unwrap();
-        GameManager::new(WINDOW_XY, 3.0)
+        GameManager::new(WINDOW_XY, 3.0, 1.0)
     }
 
     #[test]
