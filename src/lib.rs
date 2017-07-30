@@ -11,6 +11,24 @@ use piston::event_loop::*;
 use piston::input::*;
 use piston::window::WindowSettings;
 
+#[derive(Debug, PartialEq)]
+enum GameState {
+    Ready,
+    Playing,
+    Win,
+    Lose,
+}
+
+pub fn run() -> Result<(), Box<Error>> {
+    const WINDOW_XY: f64 = 300.0;
+    let window: Window = WindowSettings::new("WHACK!", [WINDOW_XY as u32, WINDOW_XY as u32])
+        .exit_on_esc(true)
+        .build()
+        .unwrap();
+    let mut game = GameManager::new(WINDOW_XY, 1.0);
+    game.start(window)
+}
+
 pub struct GameManager {
     /// Represents the state of the game
     gl: GlGraphics,
@@ -20,6 +38,14 @@ pub struct GameManager {
     score: u32,
     max_time: f64,
     tile_timer: f64,
+}
+
+impl PartialEq for GameManager {
+    fn eq(&self, other: &GameManager) -> bool {
+        (self.board == other.board) && (self.cursor == other.cursor) &&
+        (self.state == other.state) && (self.score == other.score) &&
+        (self.max_time == other.max_time) && (self.tile_timer == other.tile_timer)
+    }
 }
 
 impl GameManager {
@@ -40,6 +66,26 @@ impl GameManager {
             max_time: max_time,
             tile_timer: 0.0,
         }
+    }
+
+    pub fn start(&mut self, mut window: Window) -> Result<(), Box<Error>> {
+        println!("PRESS SPACE TO START!");
+        let mut events = Events::new(EventSettings::new());
+        while let Some(e) = events.next(&mut window) {
+            if let Some(r) = e.render_args() {
+                self.render(&r);
+            }
+
+            if let Some(u) = e.update_args() {
+                self.update(&u);
+            }
+
+            if let Some(Button::Keyboard(key)) = e.press_args() {
+                self.manage_input(key);
+            }
+        }
+
+        Ok(())
     }
 
     pub fn reset(&mut self) {
@@ -64,14 +110,102 @@ impl GameManager {
     }
 
     fn update(&mut self, args: &UpdateArgs) {
-        if let GameState::Playing = self.state {
-            self.tile_timer -= args.dt;
-            if self.tile_timer < 0.0 {
-                self.tile_timer = self.max_time;
-                self.board.add_tile();
-            }
-            if self.board.is_full() {
-                self.state = GameState::Lose;
+        match self.state {
+            GameState::Playing => self.playing_update(args),
+            _ => (),
+        }
+    }
+
+    fn playing_update(&mut self, args: &UpdateArgs) {
+        self.tile_timer -= args.dt;
+        if self.tile_timer < 0.0 {
+            self.tile_timer = self.max_time;
+            self.board.add_tile();
+        }
+        if self.board.is_full() {
+            self.state = GameState::Lose;
+            println!("You lose!");
+        }
+    }
+
+    fn manage_input(&mut self, key: piston::input::Key) {
+        match self.state {
+            GameState::Ready => self.ready_key_press(key),
+            GameState::Playing => self.playing_key_press(key),
+            GameState::Lose => self.lose_key_press(key),
+            _ => (),
+        }
+    }
+
+    fn ready_key_press(&mut self, key: piston::input::Key) {
+        if key == Key::Space {
+            self.state = GameState::Playing;
+        }
+    }
+
+    fn playing_key_press(&mut self, key: piston::input::Key) {
+        self.handle_movement(key);
+        self.whack(key);
+    }
+
+    fn lose_key_press(&mut self, key: piston::input::Key) {
+        if key == Key::Space {
+            self.reset();
+            self.state = GameState::Ready;
+        }
+    }
+
+    fn handle_movement(&mut self, key: piston::input::Key) {
+        const MOVEMENT_KEYS: [piston::input::Key; 4] = [Key::Up, Key::Down, Key::Left, Key::Right];
+        if MOVEMENT_KEYS.contains(&key) {
+            let move_dist: f64 = self.board.length / 3.0;
+            let move_vec = match key {
+                Key::Up => {
+                    gobs::Vec2D {
+                        x: 0.0,
+                        y: -move_dist,
+                    }
+                }
+                Key::Down => {
+                    gobs::Vec2D {
+                        x: 0.0,
+                        y: move_dist,
+                    }
+                }
+                Key::Right => {
+                    gobs::Vec2D {
+                        x: move_dist,
+                        y: 0.0,
+                    }
+                }
+                Key::Left => {
+                    gobs::Vec2D {
+                        x: -move_dist,
+                        y: 0.0,
+                    }
+                }
+                _ => gobs::Vec2D { x: 0.0, y: 0.0 },
+            };
+            self.cursor.pos.add(move_vec);
+        }
+    }
+
+    fn whack(&mut self, key: piston::input::Key) {
+        // Checks if user has whacked a valid tile.
+        if key == Key::Space {
+            let overlapping: Vec<usize> = self.board
+                .tiles
+                .iter()
+                .map(|x| x.map_or(false, |y| y.is_overlapping(self.cursor)))
+                .enumerate()
+                .filter(|x| x.1)
+                .map(|x| x.0)
+                .collect();
+            if overlapping.len() > 0 {
+                assert_eq!(overlapping.len(), 1);
+                self.board.tiles[overlapping[0]].take();
+                self.score += 1;
+                println!("{:?}", self.score);
             }
         }
     }
@@ -87,130 +221,6 @@ impl GameManager {
             .collect();
         sprites.push(self.cursor);
         sprites
-    }
-}
-
-impl PartialEq for GameManager {
-    fn eq(&self, other: &GameManager) -> bool {
-        (self.board == other.board) && (self.cursor == other.cursor) &&
-        (self.state == other.state) && (self.score == other.score) &&
-        (self.max_time == other.max_time) && (self.tile_timer == other.tile_timer)
-    }
-}
-
-#[derive(Debug, PartialEq)]
-enum GameState {
-    Ready,
-    Playing,
-    Win,
-    Lose,
-}
-
-pub fn run() -> Result<(), Box<Error>> {
-    const WINDOW_XY: f64 = 300.0;
-    let mut window: Window = WindowSettings::new("WHACK!", [WINDOW_XY as u32, WINDOW_XY as u32])
-        .exit_on_esc(true)
-        .build()
-        .unwrap();
-
-    let mut game = GameManager::new(WINDOW_XY, 1.0);
-
-    println!("PRESS SPACE TO START!");
-
-    let mut events = Events::new(EventSettings::new());
-    while let Some(e) = events.next(&mut window) {
-        if let Some(r) = e.render_args() {
-            game.render(&r);
-        }
-
-        if let Some(u) = e.update_args() {
-            game.update(&u);
-        }
-
-        if let Some(Button::Keyboard(key)) = e.press_args() {
-            match game.state {
-                GameState::Ready => ready_key_press(&mut game, key),
-                GameState::Playing => playing_key_press(&mut game, key),
-                GameState::Lose => lose_key_press(&mut game, key),
-                _ => (),
-            }
-        }
-    }
-
-    Ok(())
-}
-
-fn ready_key_press(game: &mut GameManager, key: piston::input::Key) {
-    if key == Key::Space {
-        game.state = GameState::Playing;
-    }
-}
-
-fn playing_key_press(game: &mut GameManager, key: piston::input::Key) {
-    handle_movement(game, key);
-    whack(game, key);
-}
-
-fn lose_key_press(game: &mut GameManager, key: piston::input::Key) {
-    if key == Key::Space {
-        game.reset();
-        game.state = GameState::Ready;
-    }
-}
-
-fn handle_movement(game: &mut GameManager, key: piston::input::Key) {
-    // This logic should be moved inside a game object
-    const MOVEMENT_KEYS: [piston::input::Key; 4] = [Key::Up, Key::Down, Key::Left, Key::Right];
-    if MOVEMENT_KEYS.contains(&key) {
-        let move_dist: f64 = game.board.length / 3.0;
-        let move_vec = match key {
-            Key::Up => {
-                gobs::Vec2D {
-                    x: 0.0,
-                    y: -move_dist,
-                }
-            }
-            Key::Down => {
-                gobs::Vec2D {
-                    x: 0.0,
-                    y: move_dist,
-                }
-            }
-            Key::Right => {
-                gobs::Vec2D {
-                    x: move_dist,
-                    y: 0.0,
-                }
-            }
-            Key::Left => {
-                gobs::Vec2D {
-                    x: -move_dist,
-                    y: 0.0,
-                }
-            }
-            _ => gobs::Vec2D { x: 0.0, y: 0.0 },
-        };
-        game.cursor.pos.add(move_vec);
-    }
-}
-
-fn whack(game: &mut GameManager, key: piston::input::Key) {
-    // Checks if user has whacked a valid tile.
-    if key == Key::Space {
-        let overlapping: Vec<usize> = game.board
-            .tiles
-            .iter()
-            .map(|x| x.map_or(false, |y| y.is_overlapping(game.cursor)))
-            .enumerate()
-            .filter(|x| x.1)
-            .map(|x| x.0)
-            .collect();
-        if overlapping.len() > 0 {
-            assert_eq!(overlapping.len(), 1);
-            game.board.tiles[overlapping[0]].take();
-            game.score += 1;
-            println!("{:?}", game.state);
-        }
     }
 }
 
