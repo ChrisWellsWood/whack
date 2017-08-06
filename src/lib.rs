@@ -247,6 +247,8 @@ impl GameManager {
                 self.board.tiles[overlapping[0]].take();
                 self.score += 1;
                 println!("{:?}", self.score);
+            } else {
+                self.board.add_tile();
             }
         }
     }
