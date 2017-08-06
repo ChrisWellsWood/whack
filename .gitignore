@@ -2,3 +2,8 @@ target/
 **/*.rs.bk
 Cargo.lock
 .vscode/
+
+# Vim Files
+
+*.swp
+*~
